@@ -1,6 +1,7 @@
 import discord
 from servermc import *
 from db.db import *
+from config import *
 import sqlite3
 import asyncio
 
@@ -189,4 +190,4 @@ async def pad(ctx, pseudo: str):
         await ctx.channel.send(f'<@{discord_id}> possède le pseudo {pseudo}.')
     except:
         await ctx.channel.send(f'Le pseudo {pseudo} n\'est pas lié à un compte discord ou n\'existe pas.')
-bot.run("")
+bot.run(token)
