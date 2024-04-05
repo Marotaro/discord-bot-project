@@ -6,6 +6,7 @@ import sqlite3
 import asyncio
 
 from discord.ext import commands
+from discord.ext.commands import check, Context
 
 intents = discord.Intents.default()
 
@@ -23,21 +24,15 @@ async def on_ready():
     print(bot.user.id)
     print("------")
 
+def is_channel(ctx: Context):
+    return ctx.channel.id in [1225844630948417617,1225487143288180795]
+
 @bot.event
 async def on_message(message):
-    if message.author != bot.user and message.content.lower() == "ping":
-        await message.channel.send("pong")
-    if message.content == "minecraft":
-        await message.channel.send(getstatus())
-        await message.channel.send(getplayers())
-        com(f"say lol {getstatus()}")
-    if message.content == "add":
-        db = get_db()
-        db.execute("INSERT INTO Players (discord_id, uuid) VALUES (?,?)", (message.author.id, 'test'))
-        db.commit()
     await bot.process_commands(message)
 
 @bot.command()
+@commands.check(is_channel)
 async def addme(ctx, pseudo: str ):    
     db = get_db()
     try:
@@ -61,7 +56,8 @@ async def addme(ctx, pseudo: str ):
         await ctx.channel.send(f'Votre pseudo n\'existe pas.')
 
 @bot.command()
-@commands.has_role("admin")
+@commands.has_any_role('Fondateur','mods')
+@commands.check(is_channel)
 async def add(ctx, user: discord.User, pseudo: str):
     db = get_db()
     try:
@@ -90,7 +86,8 @@ async def add_error(ctx, error):
         await ctx.send("Vous n'avez pas le rôle nécessaire pour exécuter cette commande.")
     
 @bot.command()
-@commands.has_role("admin")
+@commands.has_any_role('Fondateur','mods')
+@commands.check(is_channel)
 async def remove(ctx, user: discord.User):
     try:
         db = get_db()
@@ -121,6 +118,19 @@ async def remove_error(ctx, error):
         await ctx.send("Vous n'avez pas le rôle nécessaire pour exécuter cette commande.")
 
 @bot.command()
+@commands.check(is_channel)
+@commands.has_any_role('Fondateur','mods')
+async def removeall(ctx):
+    db = get_db()
+    players = db.execute("SELECT * FROM Players")
+    db.execute("DELETE FROM Players")
+    db.commit()
+    for player in players:
+        com(f"whitelist remove {get_player_name(player['uuid'])}")
+    await ctx.channel.send(f"Tous les joueurs ont été enlevés de la whitelist et déliés de leur compte discord.")
+
+@bot.command()
+@commands.check(is_channel)
 async def removeme(ctx):
     try:
         db = get_db()
@@ -146,10 +156,18 @@ async def removeme(ctx):
         await ctx.channel.send(f'Une erreur est survenue. Demandez à un administrateur de faire votre action manuellement.') 
 
 @bot.command()
-@commands.has_role("admin")
+@commands.check(is_channel)
+@commands.has_any_role('Fondateur','mods')
 async def stop(ctx):
     com("stop")
-    await ctx.channel.send("Le serveur a bien été arrêté.")
+    await ctx.channel.send("Le serveur va s'arrêter.")
+    await asyncio.sleep(30)
+    try:
+        get_if_up()
+        await ctx.channel.send("Le serveur n'a pas été arrêté")
+    except:
+        await ctx.channel.send("Le serveur a bien été arrêté.")
+
 
 @stop.error
 async def stop_error(ctx, error):
@@ -158,7 +176,8 @@ async def stop_error(ctx, error):
 
     
 @bot.command()
-@commands.has_role("admin")
+@commands.check(is_channel)
+@commands.has_any_role('Fondateur','mods')
 async def restart(ctx):
     com("restart")
     await ctx.channel.send("Le serveur est entrain de redémarrer.")
@@ -182,12 +201,67 @@ async def restart_error(ctx, error):
         await ctx.send("Vous n'avez pas le rôle nécessaire pour exécuter cette commande.")
 
 @bot.command()
-async def pad(ctx, pseudo: str):
+@commands.check(is_channel)
+async def pad(ctx, selector):
     db = get_db()
-    uuid = get_player_uuid(pseudo)
     try:
-        discord_id = db.execute("SELECT * FROM Players WHERE uuid =?", (uuid,)).fetchone()['discord_id']
-        await ctx.channel.send(f'<@{discord_id}> possède le pseudo {pseudo}.')
+        discord_id = int(selector[2:-1])
+        print(selector)
+        print(discord_id)
+        discord_id, uuid = db.execute("SELECT discord_id, uuid FROM Players WHERE discord_id =?", (discord_id,)).fetchone()
     except:
-        await ctx.channel.send(f'Le pseudo {pseudo} n\'est pas lié à un compte discord ou n\'existe pas.')
+        try:
+            discord_id, uuid = db.execute("SELECT discord_id, uuid FROM Players WHERE uuid =?", (get_player_uuid(selector),)).fetchone()
+        except:
+            await ctx.channel.send(f'Le joueur n\'est pas enregistrer ou n\'existe pas.')
+            return
+    
+    embedVar = discord.Embed(title=f"{get_player_name(uuid)}", description=f"<@{discord_id}>", color=0x2a7c1d)
+    embedVar.set_image(url = f"https://mc-heads.net/avatar/{uuid}/150")
+    await ctx.channel.send(embed=embedVar)
+
+@bot.command()
+@commands.check(is_channel)
+async def listpad(ctx):
+    db = get_db()
+    players = db.execute("SELECT discord_id, uuid FROM Players").fetchall()
+    await ctx.channel.send(f"Liste des {len(players)} joueurs enregistrés :")
+    embs = []
+    for player in players:
+        embedVar = discord.Embed(title=f"{get_player_name(player['uuid'])}", description=f"<@{player['discord_id']}>", color=0x2a7c1d)
+        embedVar.set_image(url = f"https://mc-heads.net/avatar/{player['uuid']}/150")
+        embs.append(embedVar)
+    await ctx.channel.send(embeds=embs)
+
+@bot.command()
+@commands.check(is_channel)
+@commands.has_any_role('Fondateur','mods')
+async def clear(ctx, number: str):
+    if number == "all":
+        await ctx.channel.purge(limit=None)
+    else:
+        await ctx.channel.purge(limit = int(number)+1)
+
+
+@bot.command()
+@commands.check(is_channel)
+async def info(ctx):
+    embtitre = discord.Embed(title="Info sur les commandes", color=0x2a7c1d)
+
+    embuser = discord.Embed(title="Commandes pour les utilisateurs",color=0x2a7c1d)
+    embuser.add_field(name="addme", value="S'ajouter à la whitelist\n\t$addme <pseudo>", inline = False)
+    embuser.add_field(name="removeme", value="S'enlever de la whitelist\n\t$removeme",inline = False)
+    embuser.add_field(name="pad", value="Retourne les informations d'un joueur\n\t$pad <pseudo> ou <@user>",inline = False)
+    embuser.add_field(name="listpad", value="Retourne la liste des joueurs enregistrés\n\t$listpad",inline = False)
+
+    embmodo = discord.Embed(title="Commandes pour les modos",color=0x2a7c1d)
+    embmodo.add_field(name="add", value="Ajoute un joueur à la whitelist\n\t$add <@user> <pseudo>",inline = False)
+    embmodo.add_field(name="remove", value="Enleve un joueur de la whitelist\n\t$remove <@user>",inline = False)
+    embmodo.add_field(name="clear", value="Efface les messages\n\t$clear <number> ou all",inline = False)
+    embmodo.add_field(name="stop", value="Arrête le serveur\n\t$stop",inline = False)
+    embmodo.add_field(name="restart", value="Redémarre le serveur\n\t$restart",inline = False)
+
+    await ctx.channel.send(embeds=[embtitre,embuser,embmodo])
+
+
 bot.run(token)

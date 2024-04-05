@@ -1,12 +1,17 @@
 from mcrcon import MCRcon
+from mcrcon import MCRconException
 from mcstatus import JavaServer
 import requests
 from ping3 import ping
+from config import PASSWORD
 
 def com(command):
-    with MCRcon('91.197.6.200', password='jFb2udiywF8uumJ', port= 30431, timeout=2) as client:
-        response = client.command(command)
-    return(response)
+    try:
+        with MCRcon('91.197.6.200', password=PASSWORD, port= 30431, timeout=1) as client:
+            response = client.command(command)
+        return(response)
+    except MCRconException as e:
+        return f"error: executing command: {str(e)}"
 
 
 def getstatus():
@@ -34,7 +39,6 @@ def get_if_up():
     latency = server.ping()
     return latency
 
-print(get_if_up())
 
 
 
