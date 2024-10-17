@@ -91,7 +91,8 @@ def create_server_info():
     server_info = {
         "uuid": "empty",
         "ip": "empty",
-        "port": "empty"
+        "port": "empty",
+        "rcon_port": "empty"
     }
     with open('server_info.json', 'w') as file:
         json.dump(server_info, file)
