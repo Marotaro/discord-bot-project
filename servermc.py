@@ -7,7 +7,7 @@ import json
 
 def com(command):
     try:
-        with MCRcon(f"{get_server_info('ip')}", password=PASSWORD, port= int(get_server_info("port")), timeout=5) as client:
+        with MCRcon(f"{get_server_info('ip')}", password=PASSWORD, port= int(get_server_info("rcon_port")), timeout=5) as client:
             response = client.command(command)
         return(response)
     except MCRconException as e:
