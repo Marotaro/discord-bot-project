@@ -2,7 +2,6 @@ from mcrcon import MCRcon
 from mcrcon import MCRconException
 from mcstatus import JavaServer
 import requests
-from ping3 import ping
 from config import PASSWORD, AUTHORISATION
 import json
 
