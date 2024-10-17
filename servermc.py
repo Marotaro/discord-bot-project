@@ -16,12 +16,11 @@ def com(command):
 
 
 def get_ping():
-    server = JavaServer.lookup(f"{get_server_info('ip')}:25609")
-    status = server.status()
-    return status.latency
+    server = JavaServer.lookup(f"{get_server_info('ip')}:{get_server_info('port')}")
+    return server.ping()
 
 def get_players():
-    server = JavaServer.lookup(f"{get_server_info('ip')}:25609")
+    server = JavaServer.lookup(f"{get_server_info('ip')}:{get_server_info('port')}")
     query = server.query()
     return query.players.names
 
