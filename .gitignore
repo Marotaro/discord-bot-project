@@ -11,3 +11,5 @@ instance/
 .coverage
 
 config.py
+
+server_info.json
